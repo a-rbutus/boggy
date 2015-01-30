@@ -110,7 +110,6 @@ public class Boggle {
 		ArrayList<Integer> newPath = new ArrayList<Integer>();
 		newPath.addAll(src);
 		newPath.add(addToPath);
-		//System.out.println("New path: " + newPath);
 		paths.push(newPath);
 		totalPaths ++;
 	}

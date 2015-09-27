@@ -1,6 +1,10 @@
-import java.util.ArrayList;
+/**
+ * 
+ *  @author Natalia Cornwall
+ * 
+ */
+import java.util.HashSet;
 import java.util.InputMismatchException;
-import java.util.Random;
 import java.util.Scanner;
 
 public class BoggySolver {	
@@ -8,6 +12,10 @@ public class BoggySolver {
 	private static Scanner reader;
 
 	public static void main (String args[]){
+		
+		Trie dictionary = new Trie();
+		dictionary.loadDictionary("dictionary.txt");
+		Boggle boggy = new Boggle(dictionary);
 				
 		reader = new Scanner(System.in);
 		boolean tryAgain = true;
@@ -17,64 +25,65 @@ public class BoggySolver {
 			try {
 				System.out.println("Boggle will be an n x n board. Please enter an n:");
 				int boggleSize = reader.nextInt();
+				
+				while (boggleSize < 1){ 
+					System.out.println("Needs to be greater than 0. Please try again.");
+					boggleSize = reader.nextInt();
+				}
 
 				System.out.println("Minimum word length?");
 				int minWordLength = reader.nextInt();
 
-				while (minWordLength < 1){ 
-					System.out.println("Needs to be greater than 0. Try again.");
+				while (minWordLength < 1 || minWordLength > boggleSize*boggleSize){ 
+					System.out.println("Minimum word length to be greater than 0 and less than the board size. Please try again.");
 					minWordLength = reader.nextInt();
 				}
 
 				System.out.println("Enter 0 if you want to use random tiles or 1 to enter your own Boggle.");
-				Boolean randomTiles = (reader.nextInt() == 0) ? true : false;
+				Boolean userInput = (reader.nextInt() != 0) ? true : false;
 
-				String userTileInput = "";
-				if (!randomTiles){
-					System.out.println("Enter your " +boggleSize*boggleSize +  " tile values (all one word):");
-					userTileInput = reader.next();
+				if (userInput){
+					System.out.println("Enter your tile values (all one word):");
+					String userTileInput = reader.next();
+					boggy.parseUserInputBoggle(minWordLength, userTileInput);
+					System.out.println("\nHere is your Boggle:");
 				}
-
-				String [][]tiles = new String[boggleSize][boggleSize];
-				
-				for (int i = 0; i < boggleSize; i ++){
-					for (int k = 0; k < boggleSize; k ++){
-						if (randomTiles) {
-							Random r = new Random();
-							tiles[i][k] = Character.toString((char)(r.nextInt(26) + 'a'));
-						}
-						else {
-							tiles[i][k] = userTileInput.substring(k*boggleSize+i, k*boggleSize+i+1);
-						}
-					}				
+				else {
+					boggy.shake(minWordLength, boggleSize);
+					System.out.println("\nHere is your random Boggle:");
 				}
 				
-				Boggle boggy = new Boggle(minWordLength, tiles);
-				boggy.loadDictionary("dictionary.txt");
 				System.out.println(boggy);
 
 				System.out.println("Searching Boggle...");
-				ArrayList<String> solutions = boggy.solveBoggy();
+				HashSet<String> solutions = boggy.solveBoggy();
 
 				if (solutions.size() == 0){
-					System.out.println("Sorry, didn't find any words.");
+					System.out.println("Sorry, I couldn't find any words.");
 				}
 				else {
 					System.out.println("\nYour words are:\n");
-					for (String w : solutions){
-						System.out.println("word: " + w);
-					}
-				}
 
-				System.out.println("\nWould you like to try again? Enter 0 for yes or 1 for no.");
-				if (reader.nextInt() == 1){
+					String longestWord = null;
+					for (String word : solutions){
+						System.out.println(word);
+						if (longestWord == null || word.length() > longestWord.length()){
+							longestWord = word;
+						}
+					}
+					System.out.println("\nYour most awesome word is:");
+					System.out.println(longestWord + "\n");
+				}
+				
+				System.out.println("\nWould you like to play again? Enter 1 for yes or 0 for no.");
+				if (reader.nextInt() == 0){
 					tryAgain = false;
 				}
 
 			}
 			catch (InputMismatchException e){
-				System.out.println("\nSorry, bad input.");
-				tryAgain = false;
+				System.out.println("Sorry, I couldn't read that. Please start over.\n");
+				reader.nextLine();
 			}
 		}
 	}

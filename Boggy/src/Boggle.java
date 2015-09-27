@@ -1,203 +1,153 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.Stack;
 
-public class Boggle {
+public class Boggle extends Graph{
 
-	public Boggle(Tile[] boggle, int min, int boggle_total_tiles) {
+	public int minWordLength= 0;
+	public int boggleSize = 0;
+	
+	private Hashtable<String, ArrayList<String>> boggleDictionary = new Hashtable<String, ArrayList<String>>();
+		
+	public Boggle(int minWordLength, String [][] tiles) {
 		super();
-		this.tiles = boggle;
-		this.min_word_length = min;
-		this.boggle_total_tiles = boggle_total_tiles;
-		totalPaths = 0;
+		this.minWordLength = minWordLength;
+		this.boggleSize = tiles.length;
+		
+		for (int i = 0; i < tiles.length; i ++){
+			for (int k = 0; k < tiles[i].length; k ++){
+				addNode(new Node(i, k, tiles[i][k]));
+			}
+		}
+		generateAdjacentNodes_GridPattern();
+	}
+	
+	public void loadDictionary(String filename){	
+		try {
+			BufferedReader in = new BufferedReader(new FileReader(filename));
+			String line = in.readLine();
+			while (line != null) {		
+				addWordToDictionary(line);
+				line = in.readLine();
+			}
+			in.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/*
+	 * Start DFS search, using each node as a start node
+	 */
+	public ArrayList<String> solveBoggy(){	
+		
+		ArrayList<String> solutions = new ArrayList<String>();
+		
+		for (int i = 0; i < nodes.size(); i++){
+			ArrayList<Node> currentPath = new ArrayList<Node>();
+			Node root = nodes.get(i);
+			currentPath.add(root);
+			performDFS(solutions, currentPath);			
+		}
+		return solutions;
 	}
 
-	private Tile[] tiles;
-	private int min_word_length;
-	private int boggle_total_tiles;
-	private int totalPaths;
-	private Hashtable<String, ArrayList<String>> boggle_dictionary = new Hashtable<String, ArrayList<String>>();
-	
-	private ArrayList<String> words;
-	
-	private Stack<ArrayList<Integer>> paths = new Stack<ArrayList<Integer>>();
-
-	public boolean containsWord(String word){
-		if (word.length() < min_word_length) return false;
-		String key = word.substring(0, min_word_length);
-		return (boggle_dictionary.containsKey(key) &&
-				boggle_dictionary.get(key).contains(word));
-	}	
-	
-	public ArrayList<String> search_boggy(){		
-		words = new ArrayList<String>();			
-		ArrayList<Integer> firstPath = new ArrayList<Integer>();
+	public void performDFS(ArrayList<String> solutions, ArrayList<Node> currentPath){
 		
-		//generate initial paths
-		for (int i = 0; i < boggle_total_tiles ; i ++){
-			add_path(firstPath, i);
+		String word = wordFromPath(currentPath);
+		if (dictionaryContainsWord(word)){
+			solutions.add(word);
 		}
 		
-		while (!paths.empty()){
-			ArrayList<Integer> testPath = paths.pop();
-			String testWord = word_from_tiles(testPath);
-						
-			//check the current path
-			if (containsWord(testWord) && testWord.length() >= min_word_length){
-				words.add(testWord);
-			}
-			
-			//check if you need to add new paths
-			if (testWord.length() >= min_word_length){			
-				if (boggle_dictionary.containsKey(testWord.substring(0, min_word_length))){
-					make_new_paths(testPath);
+		Node lastNode = currentPath.get(currentPath.size()-1);
+		for (Node n : lastNode.getAdjacentNodes()){
+			if (!currentPath.contains(n)){
+				
+				//if the dictionary does not contain this prefix we can backtrack
+				if (dictionaryContainsPrefix(word)){
+					currentPath.add(n);
+					performDFS(solutions, currentPath);
+					currentPath.remove(n);
 				}
 			}
-			else make_new_paths(testPath);
-			
-		}	
-		return words;
-	}
-
-	private void make_new_paths(ArrayList<Integer> testPath) {
-		
-		int row = (int) Math.sqrt(boggle_total_tiles);		
-		int lastElem = testPath.get(testPath.size() - 1);
-		
-		ArrayList<Integer> validMoves = new ArrayList<Integer>();
-		
-		lastElem ++ ;
-		
-		//top left move
-		if ((lastElem - row - 1 ) % row != 0)
-			validMoves.add(lastElem - row - 2);
-		
-		//top middle move
-		validMoves.add(lastElem - row - 1);
-		
-		//top right move
-		if ((lastElem - row + 1) % row != 1)
-			validMoves.add(lastElem - row);
-		
-		//left move
-		if ((lastElem - 1) % row != 0)
-			validMoves.add(lastElem - 2);
-
-		//right move
-		if ((lastElem + 1) % row != 1)
-			validMoves.add(lastElem);
-		
-		//bottom left move
-		if ((lastElem + row - 1) % row != 0)
-			validMoves.add(lastElem + row - 2);
-		
-		//bottom middle move
-		validMoves.add(lastElem + row - 1);
-
-		//bottom right move
-		if ((lastElem + row + 1) % row != 1)
-			validMoves.add(lastElem + row);
-		
-		for (int i : validMoves){
-			if (!testPath.contains(i) && i >= 0 && i < boggle_total_tiles){
-				add_path(testPath, i);
-			}
 		}
 	}
-
-	public void add_path(ArrayList<Integer> src, int addToPath){	
-
-		ArrayList<Integer> newPath = new ArrayList<Integer>();
-		newPath.addAll(src);
-		newPath.add(addToPath);
-		paths.push(newPath);
-		totalPaths ++;
-	}
-
-	public String word_from_tiles(ArrayList<Integer> path){
+	
+	public String wordFromPath(ArrayList<Node> path){
 		String word = "";
-		for (Integer i : path){	
-			String tile =  tiles[i].get_tile_value();
-			word = word + tile;
+		for (Node n :path ){
+			word = word + n.value;
 		}
 		return word;
 	}
-
-	public void add_word(String word){	
+	
+	public String toString(){
 		
-		if (word.length() < boggle_total_tiles && word.length() >= min_word_length){
-			String key = word.substring(0, min_word_length);
-			if (boggle_dictionary.containsKey(key)){				
-				boggle_dictionary.get(key).add(word);
+		// load the adjacency list into a matrix
+		Node[][] matrix = new Node[boggleSize][boggleSize];
+		for (Node n : nodes){
+			matrix[n.getX()][n.getY()] = n;
+		}
+		
+		String result = "";
+		
+		//print the matrix in a grid
+		for (int i = 0; i<boggleSize; i++){
+		    for (int k = 0; k<boggleSize; k++){
+		        result +=matrix[k][i];
+		    }
+		    result += "\n";
+		}
+		return result;
+	}
+
+	
+	public void addWordToDictionary(String word){	
+		if (word.length() < nodes.size() && word.length() >= minWordLength){
+			String key = word.substring(0, minWordLength);
+			if (boggleDictionary.containsKey(key)){				
+				boggleDictionary.get(key).add(word);
 			}
 			else {
-				ArrayList<String> newValue = new ArrayList<String>();
-				newValue.add(word);
-				boggle_dictionary.put(key, newValue);
+				ArrayList<String> words = new ArrayList<String>();
+				words.add(word);
+				boggleDictionary.put(key, words);
 			}
 		}
-	}
-
-	public void printBoggy(){
-		System.out.println("Your Boggle is: ");
-
-		Tile[] tiles = this.getTiles();
-		for (int i = 0 ; i < boggle_total_tiles; i ++){
-			if (i % Math.sqrt(boggle_total_tiles) == 0) {
-				// print new line for every row
-				System.out.println();
-			}
-			System.out.print(tiles[i].get_tile_value() + " ");
-		}
-		System.out.println("\n");		
-		//print_dictionary();
 	}
 	
-	public void print_dictionary(){
-		 for (String k : boggle_dictionary.keySet()) {
-			 System.out.print("\n" + k + ": ");
-			 ArrayList<String> listy = boggle_dictionary.get(k);
-			 for (String j : listy){
-				 System.out.print(j + " ");
+	public boolean dictionaryContainsPrefix(String prefix){
+		if (prefix.length() < minWordLength) return true;
+		String key = prefix.substring(0, minWordLength);
+		return boggleDictionary.containsKey(key);
+	}
+	
+	public boolean dictionaryContainsWord(String word){
+		if (word.length() < minWordLength) return false;
+		String key = word.substring(0, minWordLength);
+		return (boggleDictionary.containsKey(key) &&
+				boggleDictionary.get(key).contains(word));
+	}	
+	
+	public void printDictionary(){
+		 for (String key : boggleDictionary.keySet()) {
+			 System.out.print("\n" + key + ": ");
+			 ArrayList<String> words = boggleDictionary.get(key);
+			 for (String word : words){
+				 System.out.print(word + " ");
 			 }
 		 }
 	}
-
-	public Tile[] getTiles() {
-		return tiles;
+	
+	public Hashtable<String, ArrayList<String>> getBoggleDictionary() {
+		return boggleDictionary;
 	}
 
-	public void setTiles(Tile[] tiles) {
-		this.tiles = tiles;
-	}
-
-	public Hashtable<String, ArrayList<String>> get_boggle_dictionary() {
-		return boggle_dictionary;
-	}
-
-	public void set_boggle_dictionary(
-			Hashtable<String, ArrayList<String>> dict) {
-		this.boggle_dictionary = dict;
-	}
-
-	public int get_min_word_length() {
-		return min_word_length;
-	}
-
-	public void set_min_word_length(int min_word_length) {
-		this.min_word_length = min_word_length;
-	}
-
-	public Stack<ArrayList<Integer>> getPaths() {
-		return paths;
-	}
-
-	public void setPaths(Stack<ArrayList<Integer>> paths) {
-		this.paths = paths;
-	}
-
-	public int getTotalPaths() {
-		return totalPaths;
+	public void setBoggleDictionary(
+			Hashtable<String, ArrayList<String>> boggleDictionary) {
+		this.boggleDictionary = boggleDictionary;
 	}
 
 }
